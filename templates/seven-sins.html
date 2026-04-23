@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>七宗罪开发者画像</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f0e12;
+    --text-strong: #efe8da;
+    --text-primary: #ddd5c4;
+    --text-secondary: #8a8078;
+    --text-dim: #4a4540;
+
+    --sin-sloth: #7b9db5;
+    --sin-pride: #b5707e;
+    --sin-lust: #c49a5c;
+    --sin-gluttony: #6b9b7a;
+    --sin-greed: #b5a04a;
+    --sin-envy: #5c8f8a;
+    --sin-wrath: #a8614e;
+    --accent: #8b2252;
+
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'Noto Sans SC', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+
+    --u: min(1vw, 1.2vh);
+  }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-weight: 300;
+  }
+
+  .page {
+    height: 100vh;
+    max-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: calc(var(--u) * 4) calc(var(--u) * 5);
+    margin: 0 auto;
+  }
+
+  /* ---- HEADER ---- */
+  .header {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--u) * 3);
+    padding-bottom: calc(var(--u) * 2);
+    border-bottom: 1px solid var(--text-dim);
+    margin-bottom: calc(var(--u) * 2);
+  }
+
+  .title {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    font-size: calc(var(--u) * 1.1);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .archetype {
+    font-family: var(--font-display);
+    font-size: calc(var(--u) * 3.6);
+    letter-spacing: -0.03em;
+    line-height: 1.0;
+    color: var(--text-strong);
+  }
+
+  .archetype-bracket {
+    color: var(--text-dim);
+    font-family: var(--font-body);
+    font-weight: 300;
+  }
+
+  .personality-tag {
+    display: inline-flex;
+    align-items: baseline;
+    gap: calc(var(--u) * 0.5);
+    margin-left: calc(var(--u) * 1);
+  }
+
+  .personality-name {
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: calc(var(--u) * 2.6);
+    letter-spacing: -0.02em;
+    line-height: 1.0;
+  }
+
+  .personality-match {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: calc(var(--u) * 1.1);
+    font-weight: 500;
+  }
+
+  /* ---- MAIN CONTENT ---- */
+  .content {
+    display: grid;
+    grid-template-columns: 55% 45%;
+    gap: calc(var(--u) * 3);
+    align-items: start;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* ---- RADAR CHART ---- */
+  .chart-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  .chart-area svg {
+    width: 90%;
+    height: auto;
+    flex-shrink: 1;
+    min-height: 0;
+  }
+
+  /* ---- SUMMARY ---- */
+  .summary {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: calc(var(--u) * 1.3);
+    line-height: 1.75;
+    color: var(--text-secondary);
+    padding: 0 calc(var(--u) * 1);
+    margin-top: calc(var(--u) * 1.5);
+    flex-shrink: 1;
+    overflow: hidden;
+  }
+
+  /* ---- SINS LIST ---- */
+  .sins-list {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-left: calc(var(--u) * 4);
+    border-left: 1px solid var(--text-dim);
+    min-height: 0;
+    overflow: hidden;
+    height: 100%;
+  }
+
+  .sin-row {
+    display: grid;
+    grid-template-columns: calc(var(--u) * 6) 1fr;
+    gap: calc(var(--u) * 1.2);
+    align-items: baseline;
+  }
+
+  .sin-score {
+    font-family: var(--font-display);
+    font-size: calc(var(--u) * 3.8);
+    letter-spacing: -0.03em;
+    line-height: 1.0;
+    color: var(--text-secondary);
+    text-align: right;
+  }
+
+  .sin-row[data-sin="sloth"] .sin-score { color: var(--sin-sloth); }
+  .sin-row[data-sin="pride"] .sin-score { color: var(--sin-pride); }
+  .sin-row[data-sin="lust"] .sin-score { color: var(--sin-lust); }
+  .sin-row[data-sin="gluttony"] .sin-score { color: var(--sin-gluttony); }
+  .sin-row[data-sin="greed"] .sin-score { color: var(--sin-greed); }
+  .sin-row[data-sin="envy"] .sin-score { color: var(--sin-envy); }
+  .sin-row[data-sin="wrath"] .sin-score { color: var(--sin-wrath); }
+
+  .sin-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .sin-name {
+    font-family: var(--font-body);
+    font-weight: 700;
+    font-size: calc(var(--u) * 1.6);
+    line-height: 1.3;
+    color: var(--text-primary);
+  }
+
+  .sin-row[data-sin="sloth"] .sin-name { color: var(--sin-sloth); }
+  .sin-row[data-sin="pride"] .sin-name { color: var(--sin-pride); }
+  .sin-row[data-sin="lust"] .sin-name { color: var(--sin-lust); }
+  .sin-row[data-sin="gluttony"] .sin-name { color: var(--sin-gluttony); }
+  .sin-row[data-sin="greed"] .sin-name { color: var(--sin-greed); }
+  .sin-row[data-sin="envy"] .sin-name { color: var(--sin-envy); }
+  .sin-row[data-sin="wrath"] .sin-name { color: var(--sin-wrath); }
+
+  .sin-tagline {
+    font-family: var(--font-body);
+    font-weight: 300;
+    font-size: calc(var(--u) * 1.2);
+    line-height: 1.4;
+    color: var(--text-secondary);
+  }
+
+  .sin-data {
+    font-family: var(--font-mono);
+    font-size: calc(var(--u) * 1.05);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    color: var(--text-dim);
+    margin-top: 1px;
+  }
+
+  .sin-data strong {
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  /* ---- FOOTER ---- */
+  .footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: calc(var(--u) * 2);
+    border-top: 1px solid var(--text-dim);
+    margin-top: calc(var(--u) * 2);
+  }
+
+  .stats {
+    display: flex;
+    gap: calc(var(--u) * 5);
+  }
+
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: calc(var(--u) * 0.5);
+  }
+
+  .stat-value {
+    font-family: var(--font-display);
+    font-size: calc(var(--u) * 2.6);
+    letter-spacing: -0.02em;
+    line-height: 1.0;
+    color: var(--text-strong);
+  }
+
+  .stat-unit {
+    font-family: var(--font-mono);
+    font-size: calc(var(--u) * 1.1);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+
+  .footer-credit {
+    font-family: var(--font-mono);
+    font-size: calc(var(--u) * 1);
+    font-weight: 400;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+  }
+
+  /* ---- RESPONSIVE ---- */
+  @media (max-width: 900px) {
+    :root { --u: min(2vw, 1.2vh); }
+    .page {
+      padding: calc(var(--u) * 3);
+    }
+    .content {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto;
+    }
+    .sins-list {
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--text-dim);
+      padding-top: calc(var(--u) * 3);
+    }
+    .chart-area svg {
+    }
+    .stats {
+      gap: calc(var(--u) * 3);
+      flex-wrap: wrap;
+    }
+    .header {
+      flex-direction: column;
+      gap: calc(var(--u) * 1.5);
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="header">
+    <span class="title">七宗罪开发者画像</span>
+    <h1 class="archetype" id="archetype"></h1>
+    <span class="personality-tag" id="personality-tag"></span>
+  </header>
+
+  <main class="content">
+    <div class="chart-area">
+      <svg id="radar-svg" viewBox="0 0 540 540" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div class="summary" id="summary"></div>
+    </div>
+    <div class="sins-list" id="sins-list"></div>
+  </main>
+
+  <footer class="footer">
+    <div class="stats" id="stats"></div>
+    <div class="footer-credit" id="credit"></div>
+  </footer>
+
+</div>
+
+<script>
+// ============================================================
+// DATA — skill 只需要修改这个对象
+// ============================================================
+const DATA = {
+  lang: 'en',
+  archetype: '',
+  personality: 'Rubber Duck',
+  personalityMatch: 82,
+  summary: 'You talk to AI the way you talk to yourself — long, structured, thinking out loud. Most of the time you arrive at the answer before the response even loads. Low consumption, low aggression, low scope creep. You are the rarest kind of user: one who actually reads the output.',
+  stats: [
+    { value: '90', unit: 'days' },
+    { value: '12K', unit: 'msgs' },
+    { value: '8', unit: 'projects' },
+    { value: '1', unit: 'AI tool' },
+  ],
+  sins: [
+    { key: 'sloth',    name: 'Sloth',    score: 25, color: '#7b9db5', tagline: 'Writes more than the AI', data: 'Avg message <strong>186</strong> chars · input/output ratio <strong>1:2</strong>' },
+    { key: 'pride',    name: 'Pride',    score: 30, color: '#b5707e', tagline: 'Context? Here, have three paragraphs', data: '<strong>12%</strong> context-less · <strong>8%</strong> imperative' },
+    { key: 'gluttony', name: 'Gluttony', score: 22, color: '#6b9b7a', tagline: 'Uses AI like a library, not a buffet', data: '<strong>134</strong> msgs/day · longest session <strong>45</strong> min' },
+    { key: 'greed',    name: 'Greed',    score: 18, color: '#b5a04a', tagline: 'One question at a time, thank you', data: '<strong>3</strong> rewrites · <strong>12</strong> scope words total' },
+    { key: 'lust',     name: 'Lust',     score: 35, color: '#c49a5c', tagline: 'Loyal to the craft, not the hype', data: '<strong>8</strong> projects · <strong>1.2</strong> switches/day' },
+    { key: 'wrath',    name: 'Wrath',    score: 15, color: '#a8614e', tagline: 'Patience is a feature, not a bug', data: '<strong>23</strong> interrupts · <strong>4</strong> emotion words' },
+    { key: 'envy',     name: 'Envy',     score: 45, color: '#5c8f8a', tagline: 'Reads the docs before asking', data: '<strong>89</strong> URL refs · <strong>34</strong> source reads' },
+  ],
+  credit: 'Generated by Lucida × Claude · 2026-04-23',
+};
+
+var I18N = {
+  zh: { title: '七宗罪开发者画像', bracketL: '「', bracketR: '」' },
+  en: { title: 'Seven Deadly Sins Developer Profile', bracketL: '"', bracketR: '"' },
+};
+
+// ============================================================
+// RENDER — 以下不需要修改
+// ============================================================
+(function(D) {
+  var t = I18N[D.lang] || I18N.en;
+
+  // Lang
+  document.documentElement.lang = D.lang === 'zh' ? 'zh-CN' : 'en';
+  document.title = t.title;
+
+  // Header
+  document.querySelector('.title').textContent = t.title;
+  var arch = document.getElementById('archetype');
+  var displayName = D.personality || D.archetype;
+  arch.innerHTML = '<span class="archetype-bracket">' + t.bracketL + '</span>' + displayName + '<span class="archetype-bracket">' + t.bracketR + '</span>';
+
+  // Match percentage
+  var ptag = document.getElementById('personality-tag');
+  if (D.personalityMatch) {
+    ptag.innerHTML = '<span class="personality-match">' + D.personalityMatch + '% match</span>';
+  }
+
+  // Summary
+  var summaryEl = document.getElementById('summary');
+  summaryEl.textContent = D.summary;
+
+  // Auto-fit: balance chart size and summary font to fill available space
+  function fitChartAndSummary() {
+    var chartArea = summaryEl.parentElement;
+    var svgEl = chartArea.querySelector('svg');
+    var totalH = chartArea.clientHeight;
+    var mt = parseFloat(getComputedStyle(summaryEl).marginTop) || 0;
+
+    // Try chart scales from 100% down, find the largest where summary fits
+    var bestScale = 0.4, bestFontSize = 8;
+    for (var scale = 0.5; scale >= 0.25; scale -= 0.05) {
+      svgEl.style.width = (scale * 100) + '%';
+      var svgH = svgEl.clientHeight;
+      var available = totalH - svgH - mt;
+      if (available <= 0) continue;
+
+      // Binary search font size for this chart scale
+      var lo = 10, hi = 24, best = lo;
+      while (hi - lo > 0.5) {
+        var mid = (lo + hi) / 2;
+        summaryEl.style.fontSize = mid + 'px';
+        if (summaryEl.scrollHeight <= available) { best = mid; lo = mid; }
+        else { hi = mid; }
+      }
+      // Accept if font size is readable (>=11px)
+      if (best >= 11) { bestScale = scale; bestFontSize = best; break; }
+      // Otherwise keep trying smaller chart
+      if (best > bestFontSize) { bestScale = scale; bestFontSize = best; }
+    }
+    svgEl.style.width = (bestScale * 100) + '%';
+    summaryEl.style.fontSize = bestFontSize + 'px';
+  }
+  requestAnimationFrame(function() { requestAnimationFrame(fitChartAndSummary); });
+  window.addEventListener('resize', fitChartAndSummary);
+
+  // Sins list — fixed order matching radar chart
+  var LIST_ORDER = ['pride', 'envy', 'wrath', 'sloth', 'greed', 'gluttony', 'lust'];
+  var sinMap = {};
+  D.sins.forEach(function(s) { sinMap[s.key] = s; });
+  var list = document.getElementById('sins-list');
+  LIST_ORDER.map(function(k) { return sinMap[k]; }).forEach(function(s) {
+    var row = document.createElement('div');
+    row.className = 'sin-row';
+    row.setAttribute('data-sin', s.key);
+    row.innerHTML =
+      '<div class="sin-score">' + s.score + '</div>' +
+      '<div class="sin-info">' +
+        '<div class="sin-name">' + s.name + '</div>' +
+        '<div class="sin-tagline">' + s.tagline + '</div>' +
+        '<div class="sin-data">' + s.data + '</div>' +
+      '</div>';
+    list.appendChild(row);
+  });
+
+  // Stats
+  var stats = document.getElementById('stats');
+  D.stats.forEach(function(s) {
+    var el = document.createElement('div');
+    el.className = 'stat';
+    el.innerHTML = '<span class="stat-value">' + s.value + '</span><span class="stat-unit">' + s.unit + '</span>';
+    stats.appendChild(el);
+  });
+
+  // Credit
+  document.getElementById('credit').textContent = D.credit;
+
+  // Radar chart
+  var svg = document.getElementById('radar-svg');
+  var ns = 'http://www.w3.org/2000/svg';
+  var cx = 270, cy = 270, R = 190, n = 7;
+
+  function angle(i) { return (2 * Math.PI * i / n) - Math.PI / 2; }
+  function pos(i, r) { var a = angle(i); return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }; }
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS(ns, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  function heptPts(r) {
+    return Array.from({ length: n }, function(_, i) { var p = pos(i, r); return p.x.toFixed(2) + ',' + p.y.toFixed(2); }).join(' ');
+  }
+
+  // Axes
+  for (var i = 0; i < n; i++) {
+    var p = pos(i, R);
+    svg.appendChild(svgEl('line', { x1: cx, y1: cy, x2: p.x.toFixed(2), y2: p.y.toFixed(2), stroke: '#2a2621', 'stroke-width': '0.5' }));
+  }
+
+  // Grid rings
+  [0.33, 0.66, 1.0].forEach(function(pct) {
+    svg.appendChild(svgEl('polygon', { points: heptPts(R * pct), fill: 'none', stroke: '#2a2621', 'stroke-width': pct === 1.0 ? '1' : '0.6' }));
+  });
+
+  // Fixed vertex order — always the same position regardless of DATA.sins sort order
+  var VERTEX_ORDER = ['pride', 'envy', 'wrath', 'sloth', 'greed', 'gluttony', 'lust'];
+  var sinByKey = {};
+  D.sins.forEach(function(s) { sinByKey[s.key] = s; });
+  var chartSins = VERTEX_ORDER.map(function(k) { return sinByKey[k]; });
+
+  // Data polygon
+  var dataPts = chartSins.map(function(s, i) { var p = pos(i, R * s.score / 100); return p.x.toFixed(2) + ',' + p.y.toFixed(2); }).join(' ');
+  svg.appendChild(svgEl('polygon', { points: dataPts, fill: '#8b2252', 'fill-opacity': '0.08', stroke: '#8b2252', 'stroke-opacity': '0.35', 'stroke-width': '1.5', 'stroke-linejoin': 'round' }));
+
+  // Vertex labels
+  chartSins.forEach(function(s, i) {
+    var a = angle(i), cosA = Math.cos(a), sinA = Math.sin(a);
+    var dataP = pos(i, R * s.score / 100);
+
+    svg.appendChild(svgEl('circle', { cx: dataP.x.toFixed(2), cy: dataP.y.toFixed(2), r: '3', fill: s.color }));
+
+    var anchor = 'middle';
+    if (cosA > 0.25) anchor = 'start';
+    else if (cosA < -0.25) anchor = 'end';
+
+    var lp = pos(i, R + 28);
+    var yShift = sinA * 10;
+
+    var scoreEl = svgEl('text', { x: lp.x.toFixed(2), y: (lp.y + yShift - 8).toFixed(2), 'text-anchor': anchor, 'dominant-baseline': 'central', 'font-family': "'DM Serif Display', serif", 'font-size': '17px', fill: s.color });
+    scoreEl.textContent = s.score;
+    svg.appendChild(scoreEl);
+
+    var nameEl = svgEl('text', { x: lp.x.toFixed(2), y: (lp.y + yShift + 10).toFixed(2), 'text-anchor': anchor, 'dominant-baseline': 'central', 'font-family': "'Noto Sans SC', sans-serif", 'font-weight': '500', 'font-size': '13px', fill: '#8a8078' });
+    nameEl.textContent = s.name;
+    svg.appendChild(nameEl);
+  });
+})(DATA);
+</script>
+</body>
+</html>
