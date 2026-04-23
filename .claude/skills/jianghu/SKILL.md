@@ -225,8 +225,7 @@ Users often have context AI cannot infer from code alone: rendering engine swaps
 ### Correction Rules
 
 - Each correction must have a one-sentence justification
-- **招式 and 悟性**: no correction cap — formula is a known weak proxy for these dimensions, actual project assessment can reveal dramatically different reality
-- **Other dimensions**: maximum ±15 from formula base
+- No correction cap on any dimension — formula is a statistical baseline, content analysis and project assessment can reveal dramatically different reality on any dimension
 - If formula and content agree, no correction needed — don't adjust for the sake of adjusting
 - Project assessment is most impactful for 招式/悟性/野心; skip for other dimensions unless evidence warrants
 
@@ -276,13 +275,20 @@ After AI adjustment:
 
 ### Sect Track — Rank Assignment
 
-Identify the matched sect's core dimensions (those with anchor ≠ 50). Use the user's average score on these core dimensions to determine rank:
+Identify the matched sect's core dimensions (those with anchor ≠ 50). For each core dimension, compute an adjusted score that respects the sect's desired direction:
+
+- **↑ dimensions** (anchor > 50): `adjusted = user_score` — higher is better
+- **↓ dimensions** (anchor < 50): `adjusted = 100 - user_score` — lower original score is better for this sect
+
+Use the average of adjusted scores to determine rank:
 
 | Rank | Chinese | Condition |
 |------|---------|-----------|
-| Disciple | 弟子 | Core dimension avg < 70 |
-| Elder | 长老 | Core dimension avg 70–85 |
-| Sect Leader | 掌门 | Core dimension avg > 85 |
+| Disciple | 弟子 | Adjusted avg < 70 |
+| Elder | 长老 | Adjusted avg 70–85 |
+| Sect Leader | 掌门 | Adjusted avg > 85 |
+
+AI may override the formula rank by ±1 level with a one-sentence justification when the formula result is clearly distorted (e.g., borderline cases, atypical dimension profiles).
 
 Output format: `{Sect} · {Rank}` — e.g. "华山剑宗 · 掌门", "逍遥派 · 弟子"
 
