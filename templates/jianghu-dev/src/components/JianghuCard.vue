@@ -117,7 +117,7 @@ onMounted(async () => {
           <span class="stat-unit">{{ stat.unit }}</span>
         </div>
       </div>
-      <div class="footer-credit">{{ DATA.credit }}</div>
+      <a class="footer-credit" href="https://github.com/vimo-ai/lucida" target="_blank">{{ DATA.credit }}</a>
     </footer>
 
   </div>
@@ -343,6 +343,11 @@ onMounted(async () => {
   font-family: 'WLJH', serif;
   font-size: 0.85rem;
   color: #a09890;
+  text-decoration: none;
+}
+
+.footer-credit:hover {
+  color: #5a5550;
 }
 
 /* Stamp */

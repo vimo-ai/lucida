@@ -19,7 +19,7 @@ Profile users across 7 martial dimensions (0–100), match to a sect with rank o
 2. Compute base scores — apply scoring formulas, present 7 dimension base scores
 3. Message sampling — sample substantive messages from top projects + recent activity
 4. Project depth assessment — read project structure and core code for top 3–5 projects
-5. User alignment — present base scores + observations, ask user questions, wait for response (skip if all projects are shallow — see Step 3 trigger conditions)
+5. User alignment — present base scores + observations, ask user questions, wait for **explicit user confirmation** before proceeding (skip if all projects are shallow — see Step 3 trigger conditions)
 6. Score correction — apply corrections based on user input (if asked) + content analysis
 7. Identity matching Phase A — formula screening against sects.md
 8. Identity matching Phase B — AI compatibility judgment on top candidates
@@ -30,6 +30,10 @@ Profile users across 7 martial dimensions (0–100), match to a sect with rank o
 13. Cleanup — delete intermediate data (metrics JSON, temp files)
 
 Each step must be marked complete before proceeding to the next. If a step reveals the need to revisit a prior step, note it explicitly.
+
+**IMPORTANT constraints:**
+- **No installing dependencies.** Do not run `npm install`, `pip install`, `brew install`, `npx playwright install`, or any package installation command. Use only what is already available on the system. If a tool is missing, ask the user — do not install it yourself.
+- **User alignment requires explicit confirmation.** Keep asking follow-up questions until the user says they're done or confirms the assessment. Do not treat a single answer as sufficient when multiple projects remain unaddressed.
 
 ## Phase 3: Scoring — Metrics → Martial Dimensions
 
@@ -203,6 +207,8 @@ Before finalizing any correction scores, present the initial assessment (base sc
 Users often have context AI cannot infer from code alone: rendering engine swaps, competitive positioning, cross-project architectural vision. One round of alignment significantly improves accuracy.
 
 **Do NOT assign correction scores before this step completes.** Present base scores + observations first, get user input, then correct.
+
+**Alignment is a conversation, not a single question.** Ask about each major project that you cannot fully assess. After the user responds, follow up on anything still unclear. Only proceed to score correction when the user explicitly confirms they have nothing more to add (e.g. "OK", "没了", "差不多了").
 
 ### Correction Guidelines
 
@@ -410,7 +416,7 @@ Fill text fields per language:
 
 1. Write data to `templates/jianghu-dev/src/data.ts`
 2. Start Vite dev server: `cd templates/jianghu-dev && pnpm dev`
-3. Open in browser, screenshot the page
+3. Open in browser: `open http://localhost:5173/` (let the user screenshot manually)
 4. Terminal summary: identity + 7 scores + one-liner
 
 ## Phase 7: Cleanup
