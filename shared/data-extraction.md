@@ -6,32 +6,59 @@ All profiling systems share this pipeline. Run Phase 1–2, then hand off the ex
 
 ## Phase 1: Data Source Detection
 
-Detect available sources in order. Use the first available; if both exist, prefer session-db for richer data.
+Detect available sources in order. Use the first available; if multiple exist, prefer session-db for richer data, then merge remaining sources.
 
 1. **Claude JSONL** (universal): `~/.claude/projects/*/`
    - Check: `find ~/.claude/projects -name "*.jsonl" | head -5`
    - Parse JSONL to extract user messages
    - Available to all Claude Code users
 
-2. **Memex session-db** (richest): `~/.vimo/db/ai-cli-session.db`
+2. **Codex** (OpenAI CLI): `~/.codex/`
+   - Check: `test -f ~/.codex/history.jsonl && wc -l ~/.codex/history.jsonl`
+   - Data layers (use all available):
+     - `~/.codex/history.jsonl` — one line per user message: `{"session_id":"…","ts":unix_sec,"text":"…"}`
+     - `~/.codex/state_5.sqlite` — `threads` table with session metadata (cwd, model, title, source, git_branch, created_at, updated_at)
+     - `~/.codex/sessions/{YYYY}/{MM}/{DD}/rollout-*.jsonl` — full session transcripts with all roles/events
+   - Session JSONL event types: `session_meta`, `response_item` (role: user/developer/assistant), `event_msg` (user_message, agent_reasoning, token_count), `turn_context`
+   - To extract user messages: parse `history.jsonl` (fastest) or filter `event_msg` where `payload.type == "user_message"` from session JSONL
+   - To get session metadata (cwd/project paths): `SELECT cwd, model, source, created_at FROM threads` in `state_5.sqlite`
+
+3. **Memex session-db** (richest): `~/.vimo/db/ai-cli-session.db`
    - Check: `sqlite3 ~/.vimo/db/ai-cli-session.db "SELECT COUNT(*) FROM messages WHERE type='user'"`
    - Requirement: ≥ 1000 user messages for statistical significance
    - Provides project paths, multi-CLI data, structured metadata
 
-If neither is available, inform the user that data is insufficient.
+If no source is available, inform the user that data is insufficient.
 
-Report the data source and message count; let the user confirm before proceeding.
+When multiple sources exist, merge them for broader coverage. Report each data source and its message count; let the user confirm before proceeding.
 
 ## Phase 2: Behavioral Metric Extraction
 
 ### 2.1 Basic Stats
 
+**Memex session-db:**
 ```sql
 -- Exclude automated messages like Warmup
 SELECT COUNT(*) as total_user_msgs FROM messages WHERE type='user' AND content_text != 'Warmup';
 SELECT COUNT(DISTINCT session_id) as total_sessions FROM messages;
 SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_days FROM messages WHERE type='user';
 ```
+
+**Codex:**
+```bash
+# User message count
+wc -l ~/.codex/history.jsonl
+
+# Session count
+sqlite3 ~/.codex/state_5.sqlite "SELECT COUNT(*) FROM threads"
+
+# Active days
+sqlite3 ~/.codex/state_5.sqlite "SELECT COUNT(DISTINCT date(created_at, 'unixepoch', 'localtime')) FROM threads"
+```
+
+**Claude JSONL:** count lines where `"role":"human"` across all project JSONL files.
+
+When merging sources, deduplicate by timestamp + content hash to avoid double-counting messages already in session-db.
 
 ### 2.2 Message Characteristics
 
@@ -84,7 +111,7 @@ SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_
 | Clone/fork | "clone/fork" frequency | Developers |
 | URL references | % of messages containing http/github.com/stackoverflow | All |
 | Competitor comparison | Patterns expressing "like XX / how do others do it / reference" in user's language | All |
-| Reference projects | Projects with paths containing github/reference/demo | session-db users |
+| Reference projects | Projects with paths containing github/reference/demo | session-db / Codex |
 | Learning intent | Words expressing "how does / learn / understand" in user's language | All |
 
 ### 2.7 Control & Frustration
@@ -102,8 +129,8 @@ SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_
 
 | Metric | Description | Applicability |
 |--------|-------------|---------------|
-| Project count | Number of distinct project paths | session-db users |
-| Project switching | Avg daily project switches | session-db users |
+| Project count | Number of distinct project paths | session-db / Codex |
+| Project switching | Avg daily project switches | session-db / Codex |
 | Language diversity | Number of programming languages mentioned | Developers |
 | Topic diversity | Topic domain variety across sessions (inferred from paths/content) | All |
 | Tech stack drift | Monthly variation in tech stack mentions | Long-term users |
@@ -117,4 +144,4 @@ SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_
 - Monthly activity curve
 - User message sampling (10–15 medium-long messages for writing style)
 
-**Note**: Metrics in 2.8 and some in 2.4 are richest with session-db. When using JSONL, skip unavailable metrics — not all dimensions need to score. Profiling systems should handle incomplete data gracefully.
+**Note**: Metrics in 2.8 and some in 2.4 are richest with session-db or Codex's `state_5.sqlite` (which provides `cwd` per thread). When using Claude JSONL alone, skip unavailable metrics — not all dimensions need to score. Profiling systems should handle incomplete data gracefully.
