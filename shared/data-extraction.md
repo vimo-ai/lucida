@@ -1,64 +1,119 @@
 # Data Extraction — Common Pipeline
 
-All profiling systems share this pipeline. Run Phase 1–2, then hand off the extracted metrics to the specific profiling skill.
+All profiling systems share this pipeline. Run the extraction script, then hand off the metrics JSON to the specific profiling skill.
+
+## Quick Start
+
+```bash
+python3 scripts/extract-metrics.py > /tmp/lucida-metrics.json
+```
+
+The script auto-detects data sources, applies filters, computes all Phase 1–2 metrics, and outputs JSON to stdout. Source detection and progress go to stderr.
+
+After getting the metrics JSON, the AI skill should:
+1. Use the JSON for scoring (Phase 3) — all numbers are pre-computed
+2. Go back to raw data for **content sampling and deep dives** (Phase 4) — read actual messages for writing style, behavioral patterns, and qualitative insights that stats alone can't capture
+3. If any metric looks off, the AI can query raw data directly to verify
 
 **Language adaptation**: Before extracting keyword-based metrics, sample 20–30 user messages to detect the user's primary language. All keyword matching below must use the user's actual language — the examples given are illustrative, not exhaustive. Adapt patterns to the detected language(s).
 
 ## Phase 1: Data Source Detection
 
-Detect available sources in order. Use the first available; if multiple exist, prefer session-db for richer data, then merge remaining sources.
+Detect available sources. Use the richest available; if multiple exist, prefer session-db (multi-tool, structured), otherwise merge Claude JSONL + Codex.
 
-1. **Claude JSONL** (universal): `~/.claude/projects/*/`
-   - Check: `find ~/.claude/projects -name "*.jsonl" | head -5`
-   - Parse JSONL to extract user messages
-   - Available to all Claude Code users
-
-2. **Codex** (OpenAI CLI): `~/.codex/`
-   - Check: `test -f ~/.codex/history.jsonl && wc -l ~/.codex/history.jsonl`
-   - Data layers (use all available):
-     - `~/.codex/history.jsonl` — one line per user message: `{"session_id":"…","ts":unix_sec,"text":"…"}`
-     - `~/.codex/state_5.sqlite` — `threads` table with session metadata (cwd, model, title, source, git_branch, created_at, updated_at)
-     - `~/.codex/sessions/{YYYY}/{MM}/{DD}/rollout-*.jsonl` — full session transcripts with all roles/events
-   - Session JSONL event types: `session_meta`, `response_item` (role: user/developer/assistant), `event_msg` (user_message, agent_reasoning, token_count), `turn_context`
-   - To extract user messages: parse `history.jsonl` (fastest) or filter `event_msg` where `payload.type == "user_message"` from session JSONL
-   - To get session metadata (cwd/project paths): `SELECT cwd, model, source, created_at FROM threads` in `state_5.sqlite`
-
-3. **Memex session-db** (richest): `~/.vimo/db/ai-cli-session.db`
+1. **Memex session-db** (richest, multi-tool): `~/.vimo/db/ai-cli-session.db`
    - Check: `sqlite3 ~/.vimo/db/ai-cli-session.db "SELECT COUNT(*) FROM messages WHERE type='user'"`
-   - Requirement: ≥ 1000 user messages for statistical significance
-   - Provides project paths, multi-CLI data, structured metadata
+   - Covers: Claude, Codex, Gemini, OpenCode — all in one DB
+   - Provides session metadata, project paths, source attribution
+   - **Requires filtering** — see "User Message Filter" below
+
+2. **Claude JSONL** (universal, clean): `~/.claude/projects/*/`
+   - Check: `find ~/.claude/projects -name "*.jsonl" -not -path "*/subagents/*" | head -5`
+   - Parse JSONL: entries with `"type":"user"` where `message.content` is a string (not a `tool_result` array)
+   - Exclude subagent files (`*/subagents/*.jsonl`) unless you want agent-delegated turns
+   - Metadata available per entry: `timestamp`, `cwd`, `sessionId`, `gitBranch`, `version`
+
+3. **Codex** (OpenAI CLI, clean): `~/.codex/`
+   - Check: `test -f ~/.codex/history.jsonl && wc -l ~/.codex/history.jsonl`
+   - `~/.codex/history.jsonl` — one line per user message: `{"session_id":"…","ts":unix_sec,"text":"…"}` (no noise, ready to use)
+   - `~/.codex/state_5.sqlite` — `threads` table with session metadata (cwd, model, source, git_branch, created_at, updated_at)
+   - `~/.codex/sessions/{YYYY}/{MM}/{DD}/rollout-*.jsonl` — full session transcripts (session_meta, response_item, event_msg, turn_context)
 
 If no source is available, inform the user that data is insufficient.
 
-When multiple sources exist, merge them for broader coverage. Report each data source and its message count; let the user confirm before proceeding.
+Report each data source and its **filtered** message count; let the user confirm before proceeding.
+
+### User Message Filter (session-db)
+
+Session-db stores all JSONL entries with `type='user'` — including **tool results** and **system-injected messages** that are not real human input. Raw counts can be 5-10x inflated. Apply this filter:
+
+```sql
+-- Real user messages only
+SELECT * FROM messages
+WHERE type = 'user'
+  AND content_text != ''                                        -- tool_result entries have empty content_text
+  AND content_full NOT LIKE '[Result]%'                         -- tool execution results
+  AND content_full NOT LIKE '[Result Error]%'                   -- tool error results
+  AND content_text != 'Warmup'                                  -- heartbeat/warmup probes
+  AND content_text NOT LIKE '[Request interrupted by user%'     -- interrupt signals (includes "for tool use" variant)
+  AND content_text NOT LIKE '[SUGGESTION MODE%'                 -- suggestion prompt injection
+  AND content_text NOT LIKE '<local-command%'                   -- local command output wrappers
+  AND content_text NOT LIKE '<command-name>%'                   -- slash command invocations
+  AND content_text NOT LIKE '<command-message>%'                -- slash command bodies
+  AND content_text NOT LIKE 'Caveat: The messages below%'       -- local command caveats
+  AND content_text NOT LIKE 'Your task is to create a detailed summary%'  -- compact/summary prompts
+  AND content_text NOT LIKE '<local-command-stdout>%'           -- local command stdout wrappers
+  AND content_text NOT LIKE '<permissions instructions>%'       -- Codex permission injection
+  AND content_text NOT LIKE '<environment_context>%'            -- Codex environment injection
+  AND content_text NOT LIKE '<collaboration_mode>%'             -- collaboration mode injection
+  AND content_text NOT LIKE '<turn_aborted>%'                   -- turn abort signals
+  AND content_text NOT LIKE 'This session is being continued from%'  -- continuation prompts
+  AND content_text NOT LIKE '# AGENTS.md instructions%'         -- Codex AGENTS.md injection
+  AND content_text NOT LIKE '%<INSTRUCTIONS>%'                  -- instruction block injection
+  AND content_text NOT LIKE 'Base directory for this skill:%'   -- skill body injection
+  AND content_text NOT LIKE '## Context%'                       -- skill context injection
+  AND content_text NOT LIKE 'Tool loaded%'                      -- tool loading notifications
+  AND content_text NOT LIKE 'CRITICAL: Respond with TEXT ONLY%'  -- compact prompt variant
+```
+
+**Why this matters**: without filtering, tool_result entries (content_text='', content_full='[Result]...') inflate message counts ~5x and push short-message ratio from ~38% to ~85%, completely distorting the profile.
+
+### User Message Filter (Claude JSONL)
+
+Claude JSONL entries with `"type":"user"` include both human messages and tool results. Distinguish by `message.content`:
+- **String** → real user message
+- **Array of `{"type":"tool_result",...}`** → tool return, skip
+
+```python
+if obj.get('type') == 'user' and 'message' in obj:
+    content = obj['message'].get('content', '')
+    if isinstance(content, str) and len(content) > 0:
+        # Real user message
+```
 
 ## Phase 2: Behavioral Metric Extraction
 
 ### 2.1 Basic Stats
 
-**Memex session-db:**
+All queries below assume the user message filter is applied. For brevity, session-db examples use a `clean_user_msgs` alias — define it as a CTE or view using the filter above.
+
 ```sql
--- Exclude automated messages like Warmup
-SELECT COUNT(*) as total_user_msgs FROM messages WHERE type='user' AND content_text != 'Warmup';
-SELECT COUNT(DISTINCT session_id) as total_sessions FROM messages;
-SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_days FROM messages WHERE type='user';
+-- Session-db
+SELECT COUNT(*) as total_user_msgs FROM clean_user_msgs;
+SELECT COUNT(DISTINCT session_id) as total_sessions FROM clean_user_msgs;
+SELECT COUNT(DISTINCT date(timestamp/1000, 'unixepoch', 'localtime')) as active_days FROM clean_user_msgs;
+-- Source breakdown
+SELECT source, COUNT(*) FROM clean_user_msgs GROUP BY source;
 ```
 
-**Codex:**
 ```bash
-# User message count
+# Codex (native, no filter needed)
 wc -l ~/.codex/history.jsonl
-
-# Session count
 sqlite3 ~/.codex/state_5.sqlite "SELECT COUNT(*) FROM threads"
-
-# Active days
 sqlite3 ~/.codex/state_5.sqlite "SELECT COUNT(DISTINCT date(created_at, 'unixepoch', 'localtime')) FROM threads"
 ```
 
-**Claude JSONL:** count lines where `"role":"human"` across all project JSONL files.
-
-When merging sources, deduplicate by timestamp + content hash to avoid double-counting messages already in session-db.
+When merging native sources (Claude JSONL + Codex), deduplicate by timestamp + content hash to avoid double-counting.
 
 ### 2.2 Message Characteristics
 
@@ -144,4 +199,6 @@ When merging sources, deduplicate by timestamp + content hash to avoid double-co
 - Monthly activity curve
 - User message sampling (10–15 medium-long messages for writing style)
 
-**Note**: Metrics in 2.8 and some in 2.4 are richest with session-db or Codex's `state_5.sqlite` (which provides `cwd` per thread). When using Claude JSONL alone, skip unavailable metrics — not all dimensions need to score. Profiling systems should handle incomplete data gracefully.
+**Note**: Metrics in 2.8 and some in 2.4 are richest with session-db (multi-source, has project paths) or Codex's `state_5.sqlite` (provides `cwd` per thread). Claude JSONL also carries `cwd` per entry. When a metric is unavailable from the data source, skip it — not all dimensions need to score. Profiling systems should handle incomplete data gracefully.
+
+**Data quality check**: After filtering, verify that message length stats are reasonable — avg length ~280-320 chars, short message ratio (≤20 chars) ~35-40%. If short message ratio exceeds 60%, the filter is likely incomplete.

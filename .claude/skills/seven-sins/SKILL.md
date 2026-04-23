@@ -7,7 +7,7 @@ description: Seven Deadly Sins personality profiling. Analyzes your AI conversat
 
 Profile users across 7 sin dimensions (0–100), match to one of 32 personality archetypes, generate a shareable HTML report.
 
-**Prerequisites**: Run the shared data extraction pipeline first — see `shared/data-extraction.md` (Phase 1–2).
+**Prerequisites**: Run `python3 scripts/extract-metrics.py` to get the metrics JSON, then proceed to Phase 3. See `shared/data-extraction.md` for data source details and filter logic.
 
 **Output**: `output/{user}-seven-sins.html`
 
